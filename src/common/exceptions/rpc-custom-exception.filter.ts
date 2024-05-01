@@ -13,13 +13,31 @@ export class RpcCustomExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
     const rpcError = exception.getError();
+    let res: any;
 
-    return typeof rpcError === 'object' &&
+    if (rpcError.toString().includes('Empty response')) {
+      res = response.status(500).json({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: rpcError
+          .toString()
+          .substring(0, rpcError.toString().indexOf('(') - 1),
+      });
+    } else if (
+      typeof rpcError === 'object' &&
       'status' in rpcError &&
       'message' in rpcError
-      ? response.status(rpcError.status).json(rpcError)
-      : response
-          .status(400)
-          .json({ status: HttpStatus.BAD_REQUEST, message: rpcError });
+    ) {
+      const status = isNaN(+rpcError.status)
+        ? HttpStatus.BAD_REQUEST
+        : +rpcError.status;
+      res = response.status(status).json(rpcError);
+    } else {
+      res = response.status(HttpStatus.BAD_REQUEST).json({
+        status: HttpStatus.BAD_REQUEST,
+        message: rpcError,
+      });
+    }
+
+    return res;
   }
 }
